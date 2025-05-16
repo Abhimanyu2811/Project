@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import StudentDashboard from './components/StudentDashboard';
 import InstructorDashboard from './components/InstructorDashboard';
+import AvailableCourses from './components/AvailableCourses';
 import { authService, ROLES } from './services/authService';
 import CreateCourse from './components/CreateCourse';
 import './App.css';
@@ -40,6 +41,14 @@ function App() {
                         element={
                             <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                                 <StudentDashboard />
+                            </RoleProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/available-courses"
+                        element={
+                            <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                                <AvailableCourses />
                             </RoleProtectedRoute>
                         }
                     />

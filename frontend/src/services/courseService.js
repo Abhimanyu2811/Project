@@ -132,5 +132,89 @@ export const courseService = {
             console.error('Delete course error:', error);
             throw new Error(error.message || 'Failed to delete course. Please try again.');
         }
+    },
+
+    async getAvailableCourses() {
+        try {
+            console.log('Fetching all courses...');
+            const response = await fetch(`${API_URL}/Courses`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            });
+
+            console.log('Response status:', response.status);
+            const data = await response.json();
+            console.log('Response data:', JSON.stringify(data, null, 2));
+
+            if (!response.ok) {
+                const errorDetails = {
+                    status: response.status,
+                    message: data.message || 'Unknown error',
+                    error: data.error,
+                    innerError: data.innerError,
+                    stackTrace: data.stackTrace
+                };
+                console.error('Error response details:', errorDetails);
+                
+                // Create a more descriptive error message
+                let errorMessage = 'Failed to fetch courses: ';
+                if (data.message) errorMessage += data.message;
+                if (data.error) errorMessage += ` (${data.error})`;
+                if (data.innerError) errorMessage += ` - ${data.innerError}`;
+                
+                throw new Error(errorMessage);
+            }
+
+            if (!Array.isArray(data)) {
+                console.error('Unexpected response format:', data);
+                throw new Error('Invalid response format from server');
+            }
+
+            return data.map(course => {
+                console.log('Processing course:', course);
+                return {
+                    courseId: course.courseId,
+                    title: course.title || 'Untitled Course',
+                    description: course.description || 'No description available',
+                    mediaUrl: course.mediaUrl,
+                    instructor: course.instructor ? {
+                        userId: course.instructor.userId,
+                        name: course.instructor.name || 'Unknown Instructor',
+                        email: course.instructor.email
+                    } : {
+                        userId: null,
+                        name: 'No Instructor Assigned',
+                        email: 'N/A'
+                    }
+                };
+            });
+        } catch (error) {
+            console.error('Fetch courses error:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            throw error; // Throw the original error to preserve the stack trace
+        }
+    },
+
+    async enrollInCourse(courseId) {
+        try {
+            const response = await fetch(`${API_URL}/Courses/${courseId}/enroll`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'include'
+            }).catch(handleFetchError);
+            return handleResponse(response);
+        } catch (error) {
+            console.error('Enroll in course error:', error);
+            throw new Error('Failed to enroll in course. Please try again.');
+        }
     }
 }; 

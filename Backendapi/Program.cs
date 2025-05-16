@@ -26,8 +26,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Configure DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.EnableSensitiveDataLogging(); // Add this for detailed error messages
+});
 
 var app = builder.Build();
 
@@ -59,6 +63,7 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         Console.WriteLine($"Error processing request: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
         throw;
     }
 });

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Abhimanyu\\CAPGEMINI\\Project1\\Backendapi\\Backendapi.csproj": {}
+    "D:\\Abhimanyu\\CAPGEMINI\\Project\\Backendapi\\Backendapi.csproj": {}
   },
   "projects": {
-    "D:\\Abhimanyu\\CAPGEMINI\\Project1\\Backendapi\\Backendapi.csproj": {
+    "D:\\Abhimanyu\\CAPGEMINI\\Project\\Backendapi\\Backendapi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Abhimanyu\\CAPGEMINI\\Project1\\Backendapi\\Backendapi.csproj",
+        "projectUniqueName": "D:\\Abhimanyu\\CAPGEMINI\\Project\\Backendapi\\Backendapi.csproj",
         "projectName": "Backendapi",
-        "projectPath": "D:\\Abhimanyu\\CAPGEMINI\\Project1\\Backendapi\\Backendapi.csproj",
+        "projectPath": "D:\\Abhimanyu\\CAPGEMINI\\Project\\Backendapi\\Backendapi.csproj",
         "packagesPath": "C:\\Users\\Dr1000Tu\\.nuget\\packages\\",
-        "outputPath": "D:\\Abhimanyu\\CAPGEMINI\\Project1\\Backendapi\\obj\\",
+        "outputPath": "D:\\Abhimanyu\\CAPGEMINI\\Project\\Backendapi\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
