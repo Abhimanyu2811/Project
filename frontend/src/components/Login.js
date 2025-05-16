@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService, ROLES } from '../services/authService';
-import './Auth.css';
+import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../services/authService';
+import authService from '../services/authService';
 
 const Login = () => {
-    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: '',
-        password: ''
+        password: '',
+        name: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        console.log(`Updating ${name}:`, value);
         setFormData(prevState => ({
             ...prevState,
             [name]: value
@@ -25,61 +29,84 @@ const Login = () => {
         setError('');
         setLoading(true);
 
+        console.log('Form data before submission:', {
+            email: formData.email,
+            password: formData.password ? '***' : 'empty',
+            name: formData.name
+        });
+
         try {
-            const user = await authService.login(formData.email, formData.password);
-            // Redirect based on role
-            if (user.role === ROLES.INSTRUCTOR) {
-                navigate('/instructor-dashboard');
-            } else {
-                navigate('/student-dashboard');
+            if (!formData.email || !formData.password) {
+                throw new Error('Email and password are required');
             }
+
+            if (!formData.password.trim()) {
+                throw new Error('Password cannot be empty');
+            }
+
+            console.log('Attempting login with email:', formData.email);
+            await login(formData.email, formData.password);
+            navigate('/');
         } catch (err) {
-            setError(err.message || 'Failed to login');
+            console.error('Login error:', err);
+            setError(err.message || 'An error occurred during login. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-box">
-                <h2>Login</h2>
-                {error && <div className="error-message">{error}</div>}
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label htmlFor="email">Email:</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter your email"
-                        />
+        <div className="container mt-5">
+            <div className="row justify-content-center">
+                <div className="col-md-6">
+                    <div className="card">
+                        <div className="card-body">
+                            <h2 className="card-title text-center mb-4">Sign in to your account</h2>
+                            
+                            {error && (
+                                <div className="alert alert-danger" role="alert">
+                                    {error}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleSubmit}>
+                                <div className="mb-3">
+                                    <label htmlFor="email" className="form-label">Email address</label>
+                                    <input
+                                        type="email"
+                                        className="form-control"
+                                        id="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="mb-3">
+                                    <label htmlFor="password" className="form-label">Password</label>
+                                    <input
+                                        type="password"
+                                        className="form-control"
+                                        id="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary w-100"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Signing in...' : 'Sign in'}
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="password">Password:</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter your password"
-                        />
-                    </div>
-                    <button type="submit" disabled={loading}>
-                        {loading ? 'Logging in...' : 'Login'}
-                    </button>
-                </form>
-                <p className="auth-switch">
-                    Don't have an account?{' '}
-                    <span onClick={() => navigate('/register')} className="auth-link">
-                        Register here
-                    </span>
-                </p>
+                </div>
             </div>
         </div>
     );

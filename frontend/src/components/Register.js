@@ -1,84 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService, ROLES } from '../services/authService';
-import './Auth.css';
+import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../services/authService';
 
 const Register = () => {
-    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: '',
-        confirmPassword: '',
-        role: ROLES.STUDENT
+        role: ROLES.STUDENT // Default role
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'online', 'offline'
-
-    // Check server status on component mount
-    React.useEffect(() => {
-        let isMounted = true;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        const checkServerStatus = async () => {
-            if (!isMounted) return;
-
-            try {
-                console.log('Checking server status...');
-                const response = await fetch('http://localhost:7197/api/Users', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'include',
-                    // Increase timeout for initial connection
-                    signal: AbortSignal.timeout(10000)
-                });
-
-                if (!isMounted) return;
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`);
-                }
-
-                console.log('Server is online');
-                setServerStatus('online');
-                retryCount = 0; // Reset retry count on success
-            } catch (error) {
-                console.error('Server status check failed:', error);
-                if (!isMounted) return;
-
-                if (retryCount < maxRetries) {
-                    retryCount++;
-                    console.log(`Retrying server status check (${retryCount}/${maxRetries})...`);
-                    // Exponential backoff: 2s, 4s, 8s
-                    setTimeout(checkServerStatus, Math.min(1000 * Math.pow(2, retryCount), 8000));
-                } else {
-                    console.error('Max retries reached, marking server as offline');
-                    setServerStatus('offline');
-                }
-            }
-        };
-
-        // Initial check
-        checkServerStatus();
-
-        // Set up periodic checks every 30 seconds
-        const intervalId = setInterval(() => {
-            if (isMounted && serverStatus === 'offline') {
-                retryCount = 0; // Reset retry count for periodic checks
-                checkServerStatus();
-            }
-        }, 30000);
-
-        // Cleanup
-        return () => {
-            isMounted = false;
-            clearInterval(intervalId);
-        };
-    }, [serverStatus]);
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -86,175 +21,185 @@ const Register = () => {
             ...prevState,
             [name]: value
         }));
-        // Clear error when user starts typing
-        if (error) setError('');
-    };
-
-    const validateForm = () => {
-        if (!formData.name.trim()) {
-            setError('Name is required');
-            return false;
-        }
-        if (!formData.email.trim()) {
-            setError('Email is required');
-            return false;
-        }
-        if (!formData.email.includes('@')) {
-            setError('Please enter a valid email address');
-            return false;
-        }
-        if (formData.password.length < 6) {
-            setError('Password must be at least 6 characters long');
-            return false;
-        }
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return false;
-        }
-        if (!Object.values(ROLES).includes(formData.role)) {
-            setError('Invalid role selected');
-            return false;
-        }
-        return true;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
-        if (serverStatus === 'offline') {
-            setError('Server is currently unavailable. Please try again later.');
-            return;
-        }
-
-        if (!validateForm()) {
-            return;
-        }
-
         setLoading(true);
 
         try {
-            await authService.register({
-                name: formData.name,
-                email: formData.email,
-                password: formData.password,
-                role: formData.role
+            // Step 1: Register the user
+            const registerResponse = await fetch('http://localhost:7197/api/Auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             });
+
+            let registerData;
+            const contentType = registerResponse.headers.get('content-type');
+            
+            if (contentType && contentType.includes('application/json')) {
+                registerData = await registerResponse.json();
+            } else {
+                const textResponse = await registerResponse.text();
+                if (!textResponse.toLowerCase().includes('success')) {
+                    throw new Error(textResponse);
+                }
+            }
+
+            if (!registerResponse.ok) {
+                throw new Error(registerData?.message || registerData?.title || 'Registration failed');
+            }
+
+            // Step 2: Login the user
+            const loginResponse = await fetch('http://localhost:7197/api/Auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    name: formData.name
+                })
+            });
+
+            if (!loginResponse.ok) {
+                // If login fails, redirect to login page with a message
+                navigate('/login', { 
+                    state: { 
+                        message: 'Registration successful! Please log in with your credentials.' 
+                    }
+                });
+                return;
+            }
+
+            const loginData = await loginResponse.json();
+            
+            // Store the token and user data
+            localStorage.setItem('token', loginData.token);
+            localStorage.setItem('user', JSON.stringify(loginData.user));
+            
+            // Update auth context
+            login(loginData.user, loginData.token);
+            
             // Redirect based on role
-            navigate(formData.role === ROLES.INSTRUCTOR ? '/instructor-dashboard' : '/student-dashboard');
+            if (loginData.user.role === ROLES.INSTRUCTOR) {
+                navigate('/instructor-dashboard');
+            } else {
+                navigate('/student-dashboard');
+            }
         } catch (err) {
             setError(err.message || 'Registration failed. Please try again.');
-            // If it's a network error, update server status
-            if (err.message.includes('Unable to connect to the server')) {
-                setServerStatus('offline');
-            }
+            console.error('Registration error:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    if (serverStatus === 'checking') {
-        return (
-            <div className="auth-container">
-                <div className="auth-box">
-                    <div className="loading-message">Checking server status...</div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="auth-container">
-            <div className="auth-box">
-                <h2>Register</h2>
-                {serverStatus === 'offline' && (
-                    <div className="server-status offline">
-                        Server is currently unavailable. Please try again later.
-                    </div>
-                )}
-                {error && <div className="error-message">{error}</div>}
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label htmlFor="name">Full Name:</label>
-                        <input
-                            type="text"
-                            id="name"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter your full name"
-                            disabled={loading || serverStatus === 'offline'}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="email">Email:</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter your email"
-                            disabled={loading || serverStatus === 'offline'}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="role">Role:</label>
-                        <select
-                            id="role"
-                            name="role"
-                            value={formData.role}
-                            onChange={handleChange}
-                            required
-                            className="form-select"
-                            disabled={loading || serverStatus === 'offline'}
-                        >
-                            <option value={ROLES.STUDENT}>Student</option>
-                            <option value={ROLES.INSTRUCTOR}>Instructor</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="password">Password:</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter your password"
-                            disabled={loading || serverStatus === 'offline'}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="confirmPassword">Confirm Password:</label>
-                        <input
-                            type="password"
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                            required
-                            placeholder="Confirm your password"
-                            disabled={loading || serverStatus === 'offline'}
-                        />
-                    </div>
-                    <button 
-                        type="submit" 
-                        disabled={loading || serverStatus === 'offline'}
-                        className={serverStatus === 'offline' ? 'disabled' : ''}
-                    >
-                        {loading ? 'Registering...' : 'Register'}
-                    </button>
-                </form>
-                <p className="auth-switch">
-                    Already have an account?{' '}
-                    <span onClick={() => navigate('/login')} className="auth-link">
-                        Login here
-                    </span>
-                </p>
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    Create your account
+                </h2>
+            </div>
+
+            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="rounded-md bg-red-50 p-4">
+                                <div className="text-sm text-red-700">{error}</div>
+                            </div>
+                        )}
+
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                                Full Name
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="name"
+                                    name="name"
+                                    type="text"
+                                    required
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                Email address
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    autoComplete="email"
+                                    required
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                                Password
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    required
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                                Role
+                            </label>
+                            <div className="mt-1">
+                                <select
+                                    id="role"
+                                    name="role"
+                                    required
+                                    value={formData.role}
+                                    onChange={handleChange}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                >
+                                    <option value={ROLES.STUDENT}>Student</option>
+                                    <option value={ROLES.INSTRUCTOR}>Instructor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'Registering...' : 'Register'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

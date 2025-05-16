@@ -574,3 +574,4 @@ D:\Abhimanyu\CAPGEMINI\Project\Backendapi\obj\Debug\net8.0\refint\Backendapi.dll
 D:\Abhimanyu\CAPGEMINI\Project\Backendapi\obj\Debug\net8.0\Backendapi.pdb
 D:\Abhimanyu\CAPGEMINI\Project\Backendapi\obj\Debug\net8.0\Backendapi.genruntimeconfig.cache
 D:\Abhimanyu\CAPGEMINI\Project\Backendapi\obj\Debug\net8.0\ref\Backendapi.dll
+D:\Abhimanyu\CAPGEMINI\Project\Backendapi\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll

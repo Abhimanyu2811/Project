@@ -1,95 +1,98 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/authService';
+import { Link } from 'react-router-dom';
+import authService, { ROLES } from '../services/authService';
 import './Dashboard.css';
 
 const InstructorDashboard = () => {
-    const navigate = useNavigate();
-    const user = authService.getCurrentUser();
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!authService.isInstructor()) {
-            navigate('/login');
-            return;
-        }
-        fetchInstructorCourses();
-    }, [navigate]);
+        const fetchCourses = async () => {
+            try {
+                const response = await fetch('http://localhost:7197/api/Courses/instructor', {
+                    headers: {
+                        ...authService.getAuthHeader()
+                    }
+                });
 
-    const fetchInstructorCourses = async () => {
-        try {
-            const response = await fetch(`http://localhost:7197/api/Courses`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch courses');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch courses');
+                }
+
+                const data = await response.json();
+                setCourses(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
             }
-            const data = await response.json();
-            setCourses(data);
-        } catch (err) {
-            setError('Failed to load courses');
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
 
-    const handleLogout = () => {
-        authService.logout();
-        navigate('/login');
-    };
-
-    const handleCreateCourse = () => {
-        navigate('/create-course');
-    };
+        fetchCourses();
+    }, []);
 
     if (loading) {
-        return <div className="dashboard-loading">Loading...</div>;
+        return (
+            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <p>Loading...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <p className="text-red-600">{error}</p>
+            </div>
+        );
     }
 
     return (
-        <div className="dashboard-container">
-            <header className="dashboard-header">
-                <h1>Instructor Dashboard</h1>
-                <div className="user-info">
-                    <span>Welcome, {user?.name}</span>
-                    <button onClick={handleLogout} className="logout-button">
-                        Logout
-                    </button>
-                </div>
-            </header>
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-gray-900">Instructor Dashboard</h1>
+                <Link
+                    to="/create-course"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    Create New Course
+                </Link>
+            </div>
 
-            {error && <div className="error-message">{error}</div>}
-
-            <main className="dashboard-content">
-                <section className="courses-section">
-                    <div className="section-header">
-                        <h2>Your Courses</h2>
-                        <button onClick={handleCreateCourse} className="create-button">
-                            Create New Course
-                        </button>
-                    </div>
-                    {courses.length === 0 ? (
-                        <p>No courses created yet.</p>
-                    ) : (
-                        <div className="courses-grid">
-                            {courses.map(course => (
-                                <div key={course.courseId} className="course-card">
-                                    <h3>{course.title}</h3>
-                                    <p>{course.description}</p>
-                                    <div className="course-actions">
-                                        <button onClick={() => navigate(`/course/${course.courseId}/manage`)}>
-                                            Manage Course
-                                        </button>
-                                        <button onClick={() => navigate(`/course/${course.courseId}/assessments`)}>
-                                            View Assessments
-                                        </button>
+            <div className="mt-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Courses</h2>
+                {courses.length === 0 ? (
+                    <p className="text-gray-500">You haven't created any courses yet.</p>
+                ) : (
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {courses.map((course) => (
+                            <div
+                                key={course.id}
+                                className="bg-white overflow-hidden shadow rounded-lg"
+                            >
+                                <div className="px-4 py-5 sm:p-6">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        {course.title}
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        {course.description}
+                                    </p>
+                                    <div className="mt-4">
+                                        <Link
+                                            to={`/courses/${course.id}`}
+                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                        >
+                                            View Course Details
+                                        </Link>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            </main>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

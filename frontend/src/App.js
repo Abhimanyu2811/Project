@@ -1,17 +1,24 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import authService, { ROLES } from './services/authService';
 import Login from './components/Login';
 import Register from './components/Register';
+import ProtectedRoute from './components/ProtectedRoute';
+import Navbar from './components/Navbar';
+import Home from './components/Home';
+import Courses from './components/Courses';
+import Assessments from './components/Assessments';
+import Results from './components/Results';
 import StudentDashboard from './components/StudentDashboard';
 import InstructorDashboard from './components/InstructorDashboard';
 import AvailableCourses from './components/AvailableCourses';
-import { authService, ROLES } from './services/authService';
 import CreateCourse from './components/CreateCourse';
 import './App.css';
 
 // Role-based Protected Route component
 const RoleProtectedRoute = ({ children, allowedRoles }) => {
-    const user = authService.getCurrentUser();
+    const { user } = useAuth();
     
     if (!user) {
         return <Navigate to="/login" />;
@@ -27,73 +34,102 @@ const RoleProtectedRoute = ({ children, allowedRoles }) => {
 
 function App() {
     return (
-        <Router>
-            <div className="App">
-                <Routes>
-                    {/* Public routes */}
-                    <Route path="/" element={<Navigate to="/login" />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+        <AuthProvider>
+            <Router>
+                <div className="App">
+                    <Navbar />
+                    <Routes>
+                        {/* Public routes */}
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/" element={<Home />} />
 
-                    {/* Student routes */}
-                    <Route
-                        path="/student-dashboard"
-                        element={
-                            <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-                                <StudentDashboard />
-                            </RoleProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/available-courses"
-                        element={
-                            <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-                                <AvailableCourses />
-                            </RoleProtectedRoute>
-                        }
-                    />
+                        {/* Protected routes */}
+                        <Route
+                            path="/courses"
+                            element={
+                                <ProtectedRoute>
+                                    <Courses />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/assessments"
+                            element={
+                                <ProtectedRoute>
+                                    <Assessments />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/results"
+                            element={
+                                <ProtectedRoute>
+                                    <Results />
+                                </ProtectedRoute>
+                            }
+                        />
 
-                    {/* Instructor routes */}
-                    <Route
-                        path="/instructor-dashboard"
-                        element={
-                            <RoleProtectedRoute allowedRoles={[ROLES.INSTRUCTOR]}>
-                                <InstructorDashboard />
-                            </RoleProtectedRoute>
-                        }
-                    />
+                        {/* Student routes */}
+                        <Route
+                            path="/student-dashboard"
+                            element={
+                                <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                                    <StudentDashboard />
+                                </RoleProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/available-courses"
+                            element={
+                                <RoleProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                                    <AvailableCourses />
+                                </RoleProtectedRoute>
+                            }
+                        />
 
-                    {/* Create course route */}
-                    <Route
-                        path="/create-course"
-                        element={
-                            <RoleProtectedRoute allowedRoles={[ROLES.INSTRUCTOR]}>
-                                <CreateCourse />
-                            </RoleProtectedRoute>
-                        }
-                    />
+                        {/* Instructor routes */}
+                        <Route
+                            path="/instructor-dashboard"
+                            element={
+                                <RoleProtectedRoute allowedRoles={[ROLES.INSTRUCTOR]}>
+                                    <InstructorDashboard />
+                                </RoleProtectedRoute>
+                            }
+                        />
 
-                    {/* Default route - redirect based on role */}
-                    <Route
-                        path="/"
-                        element={
-                            <Navigate
-                                to={
-                                    authService.isAuthenticated()
-                                        ? authService.isInstructor()
-                                            ? '/instructor-dashboard'
-                                            : '/student-dashboard'
-                                        : '/login'
-                                }
-                            />
-                        }
-                    />
+                        {/* Create course route */}
+                        <Route
+                            path="/create-course"
+                            element={
+                                <RoleProtectedRoute allowedRoles={[ROLES.INSTRUCTOR]}>
+                                    <CreateCourse />
+                                </RoleProtectedRoute>
+                            }
+                        />
 
-                    {/* Catch all route */}
-                    <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-            </div>
-        </Router>
+                        {/* Default route - redirect based on role */}
+                        <Route
+                            path="/"
+                            element={
+                                <Navigate
+                                    to={
+                                        authService.isAuthenticated()
+                                            ? authService.isInstructor()
+                                                ? '/instructor-dashboard'
+                                                : '/student-dashboard'
+                                            : '/login'
+                                    }
+                                />
+                            }
+                        />
+
+                        {/* Catch all route */}
+                        <Route path="*" element={<Navigate to="/" />} />
+                    </Routes>
+                </div>
+            </Router>
+        </AuthProvider>
     );
 }
 

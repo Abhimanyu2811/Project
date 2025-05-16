@@ -63,65 +63,98 @@ export const ROLES = {
     INSTRUCTOR: 'Instructor'
 };
 
-export const authService = {
-    async register(userData) {
-        // Check server status first
-        const isServerAvailable = await checkServerStatus();
-        if (!isServerAvailable) {
-            throw new Error('Server is not available. Please check if the backend is running.');
+const authService = {
+    async login(email, password) {
+        console.log('Login attempt with:', { 
+            email, 
+            passwordLength: password ? password.length : 0,
+            passwordType: typeof password
+        });
+        
+        // Ensure email is a string and has a value
+        const emailStr = String(email || '').trim();
+        if (!emailStr) {
+            throw new Error('Email is required');
         }
 
-        try {
-            console.log('Attempting registration with:', { ...userData, password: '[REDACTED]' });
-            const response = await fetch(`${API_URL}/Users`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    userId: crypto.randomUUID(),
-                    name: userData.name,
-                    email: userData.email,
-                    passwordHash: userData.password,
-                    role: userData.role || ROLES.STUDENT,
-                    courseIds: []
-                }),
-            }).catch(handleFetchError);
+        // Ensure password is a string and has a value
+        const passwordStr = String(password || '').trim();
+        console.log('Password validation:', {
+            originalLength: password ? password.length : 0,
+            trimmedLength: passwordStr.length,
+            isEmpty: !passwordStr
+        });
 
-            const newUser = await handleResponse(response);
-            console.log('Registration successful:', { ...newUser, passwordHash: '[REDACTED]' });
-            this.setUserSession(newUser);
-            return newUser;
-        } catch (error) {
-            console.error('Registration error:', error);
-            throw new Error(error.message || 'Registration failed. Please try again.');
+        if (!passwordStr) {
+            throw new Error('Password is required');
         }
+
+        // Generate a name from email if possible
+        const name = emailStr.includes('@') ? emailStr.split('@')[0] : emailStr;
+
+        const requestBody = {
+            Email: emailStr,
+            Password: passwordStr,
+            Name: name,
+            Role: 'Student'
+        };
+
+        console.log('Sending request:', {
+            ...requestBody,
+            Password: '***' // Mask password in logs
+        });
+
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error);
+        }
+
+        const token = await response.text();
+        localStorage.setItem('token', token);
+        return token;
     },
 
-    async login(email, password) {
-        try {
-            const response = await fetch(`${API_URL}/Users`, {
-                headers: {
-                    'Accept': 'application/json'
-                },
-                credentials: 'include'
-            }).catch(handleFetchError);
-            
-            const users = await handleResponse(response);
-            const user = users.find(u => u.email === email);
-            
-            if (!user || user.passwordHash !== password) {
-                throw new Error('Invalid email or password');
-            }
+    async register(name, email, password) {
+        const response = await fetch(`${API_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, email, password }),
+        });
 
-            this.setUserSession(user);
-            return user;
-        } catch (error) {
-            console.error('Login error:', error);
-            throw new Error(error.message || 'Login failed. Please try again.');
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error);
         }
+
+        return await response.text();
+    },
+
+    logout() {
+        localStorage.removeItem('token');
+    },
+
+    getToken() {
+        return localStorage.getItem('token');
+    },
+
+    isAuthenticated() {
+        return !!this.getToken();
+    },
+
+    // Add token to request headers
+    getAuthHeader() {
+        const token = this.getToken();
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
     },
 
     async fetchCourses() {
@@ -149,17 +182,9 @@ export const authService = {
         localStorage.setItem('user', JSON.stringify(userData));
     },
 
-    logout() {
-        localStorage.removeItem('user');
-    },
-
     getCurrentUser() {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
-    },
-
-    isAuthenticated() {
-        return !!this.getCurrentUser();
     },
 
     hasRole(role) {
@@ -174,4 +199,6 @@ export const authService = {
     isInstructor() {
         return this.hasRole(ROLES.INSTRUCTOR);
     }
-}; 
+};
+
+export default authService; 

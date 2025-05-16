@@ -92,7 +92,7 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
             entity.Property(e => e.PasswordHash)
-                .HasMaxLength(50)
+                .HasMaxLength(256)
                 .IsUnicode(false);
             entity.Property(e => e.Role)
                 .HasMaxLength(50)

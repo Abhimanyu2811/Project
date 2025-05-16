@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Backendapi.Models;
 
 public partial class User
 {
+    [Key]
     public Guid UserId { get; set; }
 
     public string? Name { get; set; }
@@ -14,6 +16,8 @@ public partial class User
     public string? Role { get; set; }
 
     public string? PasswordHash { get; set; }
+
+    public string? PasswordSalt { get; set; }
 
     public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
 
