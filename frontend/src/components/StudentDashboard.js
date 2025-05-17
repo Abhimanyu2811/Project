@@ -5,12 +5,41 @@ import { Link } from 'react-router-dom';
 const StudentDashboard = () => {
     const { user } = useAuth();
     const [courses, setCourses] = useState([]);
+    const [enrolledCourses, setEnrolledCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        fetchCourses();
-    }, []);
+    const fetchEnrolledCourses = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Fetching enrolled courses...');
+
+            const response = await fetch('http://localhost:7197/api/Courses/enrolled', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                mode: 'cors'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to fetch enrolled courses: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Fetched enrolled courses:', data);
+            setEnrolledCourses(data);
+        } catch (err) {
+            console.error('Error fetching enrolled courses:', err);
+            setError(err.message || 'Failed to load enrolled courses');
+        }
+    };
 
     const fetchCourses = async () => {
         try {
@@ -21,69 +50,89 @@ const StudentDashboard = () => {
 
             console.log('Fetching available courses...');
 
-            // Increase timeout to 15 seconds
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-
             const response = await fetch('http://localhost:7197/api/Courses', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                signal: controller.signal
+                mode: 'cors'
             });
-
-            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error('Error response:', errorData);
-                
-                if (response.status === 401) {
-                    throw new Error('Authentication failed. Please log in again.');
-                }
                 throw new Error(errorData.message || `Failed to fetch courses: ${response.status}`);
             }
 
             const data = await response.json();
             console.log('Fetched courses:', data);
-            setCourses(data);
+            // Filter out courses that are already enrolled
+            const availableCourses = data.filter(course => 
+                !enrolledCourses.some(enrolled => enrolled.courseId === course.courseId)
+            );
+            setCourses(availableCourses);
         } catch (err) {
             console.error('Error fetching courses:', err);
-            if (err.name === 'AbortError') {
-                setError('Request timed out. The server is taking too long to respond. Please try again.');
-            } else if (err.message.includes('Failed to fetch')) {
-                setError('Cannot connect to the server. Please make sure the backend server is running at http://localhost:7197');
-            } else {
-                setError(err.message || 'Failed to load courses');
-            }
+            setError(err.message || 'Failed to load courses');
         } finally {
             setLoading(false);
         }
     };
 
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                await Promise.all([fetchEnrolledCourses(), fetchCourses()]);
+            } catch (err) {
+                console.error('Error loading data:', err);
+                setError(err.message || 'Failed to load data');
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
     const handleEnroll = async (courseId) => {
         try {
             const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Attempting to enroll in course:', courseId);
+
             const response = await fetch(`http://localhost:7197/api/Courses/${courseId}/enroll`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'omit'
             });
 
+            const data = await response.json().catch(() => ({}));
+            
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to enroll in course');
+                console.error('Enrollment error response:', data);
+                throw new Error(data.message || `Failed to enroll: ${response.status}`);
             }
 
-            // Refresh the courses list after successful enrollment
-            await fetchCourses();
+            console.log('Enrollment successful:', data);
+
+            // Refresh both enrolled and available courses
+            await Promise.all([fetchEnrolledCourses(), fetchCourses()]);
+            alert(data.message || 'Successfully enrolled in the course!');
         } catch (err) {
             console.error('Error enrolling in course:', err);
-            setError(err.message || 'Failed to enroll in course');
+            if (err.message.includes('Failed to fetch')) {
+                setError('Network error: Please check if the backend server is running and accessible.');
+            } else {
+                setError(err.message || 'Failed to enroll in course');
+            }
         }
     };
 
@@ -101,52 +150,94 @@ const StudentDashboard = () => {
 
     return (
         <div className="container mt-5">
-            <h1 className="mb-4">Available Courses</h1>
-            
             {error && (
                 <div className="alert alert-danger" role="alert">
                     {error}
                 </div>
             )}
 
-            {courses.length === 0 ? (
-                <div className="alert alert-info">
-                    No courses available at the moment.
-                </div>
-            ) : (
-                <div className="row">
-                    {courses.map((course) => (
-                        <div key={course.courseId} className="col-md-6 col-lg-4 mb-4">
-                            <div className="card h-100 shadow-sm">
-                                <div className="card-body">
-                                    <h5 className="card-title">{course.title}</h5>
-                                    <p className="card-text text-muted">{course.description}</p>
-                                    {course.mediaUrl && (
-                                        <p className="card-text">
-                                            <small className="text-muted">Media: {course.mediaUrl}</small>
-                                        </p>
-                                    )}
-                                    <div className="mt-3">
-                                        <p className="card-text">
-                                            <small className="text-muted">
-                                                Instructor: {course.instructor?.name || 'Unknown'}
-                                            </small>
-                                        </p>
+            {/* Enrolled Courses Section */}
+            <div className="mb-5">
+                <h2 className="mb-4">My Enrolled Courses</h2>
+                {enrolledCourses.length === 0 ? (
+                    <div className="alert alert-info">
+                        You haven't enrolled in any courses yet.
+                    </div>
+                ) : (
+                    <div className="row">
+                        {enrolledCourses.map((course) => (
+                            <div key={course.courseId} className="col-md-6 col-lg-4 mb-4">
+                                <div className="card h-100 shadow-sm border-success">
+                                    <div className="card-body">
+                                        <h5 className="card-title">{course.title}</h5>
+                                        <p className="card-text text-muted">{course.description}</p>
+                                        {course.mediaUrl && (
+                                            <p className="card-text">
+                                                <small className="text-muted">Media: {course.mediaUrl}</small>
+                                            </p>
+                                        )}
+                                        <div className="mt-3">
+                                            <p className="card-text">
+                                                <small className="text-muted">
+                                                    Instructor: {course.instructor?.name || 'Unknown'}
+                                                </small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="card-footer bg-transparent border-top-0">
+                                        <Link to={`/course/${course.courseId}`} className="btn btn-success w-100">
+                                            View Course
+                                        </Link>
                                     </div>
                                 </div>
-                                <div className="card-footer bg-transparent border-top-0">
-                                    <button
-                                        onClick={() => handleEnroll(course.courseId)}
-                                        className="btn btn-primary w-100"
-                                    >
-                                        Enroll Now
-                                    </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Available Courses Section */}
+            <div>
+                <h2 className="mb-4">Available Courses</h2>
+                {courses.length === 0 ? (
+                    <div className="alert alert-info">
+                        No courses available at the moment.
+                    </div>
+                ) : (
+                    <div className="row">
+                        {courses.map((course) => (
+                            <div key={course.courseId} className="col-md-6 col-lg-4 mb-4">
+                                <div className="card h-100 shadow-sm">
+                                    <div className="card-body">
+                                        <h5 className="card-title">{course.title}</h5>
+                                        <p className="card-text text-muted">{course.description}</p>
+                                        {course.mediaUrl && (
+                                            <p className="card-text">
+                                                <small className="text-muted">Media: {course.mediaUrl}</small>
+                                            </p>
+                                        )}
+                                        <div className="mt-3">
+                                            <p className="card-text">
+                                                <small className="text-muted">
+                                                    Instructor: {course.instructor?.name || 'Unknown'}
+                                                </small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="card-footer bg-transparent border-top-0">
+                                        <button
+                                            onClick={() => handleEnroll(course.courseId)}
+                                            className="btn btn-primary w-100"
+                                        >
+                                            Enroll Now
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

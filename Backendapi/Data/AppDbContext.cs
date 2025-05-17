@@ -25,11 +25,19 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<User> Users { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=EduSyncDb;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False");
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            // This will be used only if the DbContext is created without options
+            // In normal operation, the connection string is provided through Program.cs
+            optionsBuilder.UseSqlServer("Name=DefaultConnection");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Assessment>(entity =>
         {
             entity.ToTable("Assessment");
@@ -98,6 +106,33 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
         });
+
+        // Configure the many-to-many relationship between User and Course
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.EnrolledCourses)
+            .WithMany(c => c.EnrolledStudents)
+            .UsingEntity(j => j.ToTable("UserEnrollments"));
+
+        // Configure the one-to-many relationship between User (Instructor) and Course
+        modelBuilder.Entity<Course>()
+            .HasOne(c => c.Instructor)
+            .WithMany(u => u.Courses)
+            .HasForeignKey(c => c.InstructorId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Configure the one-to-many relationship between Course and Assessment
+        modelBuilder.Entity<Course>()
+            .HasMany(c => c.Assessments)
+            .WithOne(a => a.Course)
+            .HasForeignKey(a => a.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure the one-to-many relationship between User and Result
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.Results)
+            .WithOne(r => r.User)
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         OnModelCreatingPartial(modelBuilder);
     }

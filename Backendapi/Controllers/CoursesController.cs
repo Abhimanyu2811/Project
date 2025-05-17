@@ -239,48 +239,6 @@ namespace Backendapi.Controllers
             }
         }
 
-        // POST: api/Courses/{id}/enroll
-        [HttpPost("{id}/enroll")]
-        public async Task<IActionResult> EnrollInCourse(Guid id)
-        {
-            var course = await _context.Courses
-                .Include(c => c.Instructor)
-                .FirstOrDefaultAsync(c => c.CourseId == id);
-
-            if (course == null)
-            {
-                return NotFound("Course not found");
-            }
-
-            // Get the current user from the request
-            var userId = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
-
-            var user = await _context.Users
-                .Include(u => u.Courses)
-                .FirstOrDefaultAsync(u => u.UserId == Guid.Parse(userId));
-
-            if (user == null)
-            {
-                return NotFound("User not found");
-            }
-
-            // Check if user is already enrolled
-            if (user.Courses.Any(c => c.CourseId == id))
-            {
-                return BadRequest("Already enrolled in this course");
-            }
-
-            // Add course to user's courses
-            user.Courses.Add(course);
-            await _context.SaveChangesAsync();
-
-            return Ok();
-        }
-
         /// <summary>
         /// Gets all courses for the currently authenticated instructor
         /// </summary>
@@ -296,41 +254,30 @@ namespace Backendapi.Controllers
         {
             try
             {
-                _logger.LogInformation("Fetching instructor courses...");
-                
-                // Log all claims for debugging
-                var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
-                _logger.LogInformation("User claims: {@Claims}", claims);
-                
-                // Get the current user's ID from the token
-                var userId = User.FindFirst("UserId")?.Value;
-                _logger.LogInformation("Found user ID in token: {UserId}", userId);
-
-                if (string.IsNullOrEmpty(userId))
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
                 {
                     _logger.LogWarning("User ID not found in token");
                     return Unauthorized(new { message = "User ID not found in token" });
                 }
 
-                if (!Guid.TryParse(userId, out Guid instructorId))
+                if (!Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
-                    _logger.LogWarning("Invalid user ID format: {UserId}", userId);
+                    _logger.LogWarning("Invalid user ID format in token");
                     return BadRequest(new { message = "Invalid user ID format" });
                 }
 
-                _logger.LogInformation($"Fetching courses for instructor ID: {instructorId}");
+                _logger.LogInformation($"User ID from token: {userId}");
 
-                // Get courses for this instructor by joining with Users table
                 var courses = await _context.Courses
                     .Include(c => c.Instructor)
-                    .Where(c => c.Instructor != null && c.Instructor.UserId == instructorId)
+                    .Where(c => c.InstructorId == userId)
                     .ToListAsync();
 
-                _logger.LogInformation($"Found {courses.Count} courses for instructor {instructorId}");
-
-                if (courses.Count == 0)
+                if (courses == null || !courses.Any())
                 {
-                    return Ok(new List<object>());
+                    _logger.LogInformation($"No courses found for instructor {userId}");
+                    return NotFound(new { message = "No courses found for this instructor" });
                 }
 
                 var response = courses.Select(c => new
@@ -354,8 +301,126 @@ namespace Backendapi.Controllers
                 _logger.LogError(ex, "Error in GetInstructorCourses");
                 return StatusCode(500, new { 
                     message = "Internal server error while fetching instructor courses",
-                    error = ex.Message,
-                    stackTrace = ex.StackTrace
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("enrolled")]
+        public async Task<ActionResult<IEnumerable<object>>> GetEnrolledCourses()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                {
+                    _logger.LogWarning("User ID not found in token");
+                    return Unauthorized(new { message = "User ID not found in token" });
+                }
+
+                if (!Guid.TryParse(userIdClaim.Value, out Guid userId))
+                {
+                    _logger.LogWarning("Invalid user ID format in token");
+                    return BadRequest(new { message = "Invalid user ID format" });
+                }
+
+                _logger.LogInformation($"User ID from token: {userId}");
+
+                var user = await _context.Users
+                    .Include(u => u.EnrolledCourses)
+                        .ThenInclude(c => c.Instructor)
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                if (user == null)
+                {
+                    _logger.LogWarning($"User not found: {userId}");
+                    return NotFound(new { message = "User not found" });
+                }
+
+                var enrolledCourses = user.EnrolledCourses.Select(c => new
+                {
+                    courseId = c.CourseId,
+                    title = c.Title ?? "Untitled Course",
+                    description = c.Description ?? "No description available",
+                    mediaUrl = c.MediaUrl,
+                    instructor = c.Instructor != null ? new
+                    {
+                        userId = c.Instructor.UserId,
+                        name = c.Instructor.Name ?? "Unknown Instructor",
+                        email = c.Instructor.Email
+                    } : null
+                }).ToList();
+
+                _logger.LogInformation($"Found {enrolledCourses.Count} enrolled courses for user {userId}");
+                return Ok(enrolledCourses);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetEnrolledCourses");
+                return StatusCode(500, new { 
+                    message = "Internal server error while fetching enrolled courses",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // POST: api/Courses/{courseId}/enroll
+        [HttpPost("{courseId}/enroll")]
+        public async Task<IActionResult> Enroll(Guid courseId)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                {
+                    _logger.LogWarning("User ID not found in token");
+                    return Unauthorized(new { message = "User ID not found in token" });
+                }
+
+                if (!Guid.TryParse(userIdClaim.Value, out Guid userId))
+                {
+                    _logger.LogWarning("Invalid user ID format in token");
+                    return BadRequest(new { message = "Invalid user ID format" });
+                }
+
+                _logger.LogInformation($"User ID from token: {userId}");
+
+                var user = await _context.Users
+                    .Include(u => u.EnrolledCourses)
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                if (user == null)
+                {
+                    _logger.LogWarning($"User not found: {userId}");
+                    return NotFound(new { message = "User not found" });
+                }
+
+                var course = await _context.Courses.FindAsync(courseId);
+                if (course == null)
+                {
+                    _logger.LogWarning($"Course not found: {courseId}");
+                    return NotFound(new { message = "Course not found" });
+                }
+
+                if (user.EnrolledCourses.Any(c => c.CourseId == courseId))
+                {
+                    _logger.LogWarning($"User {userId} is already enrolled in course {courseId}");
+                    return BadRequest(new { message = "User is already enrolled in this course" });
+                }
+
+                user.EnrolledCourses.Add(course);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"User {userId} successfully enrolled in course {courseId}");
+                return Ok(new { message = "Successfully enrolled in course" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in Enroll");
+                return StatusCode(500, new { 
+                    message = "Internal server error while enrolling in course",
+                    error = ex.Message
                 });
             }
         }
