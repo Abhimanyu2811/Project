@@ -1,43 +1,77 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import authService, { ROLES } from '../services/authService';
-import './Dashboard.css';
 
 const StudentDashboard = () => {
-    const [enrolledCourses, setEnrolledCourses] = useState([]);
+    const { user } = useAuth();
+    const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchEnrolledCourses = async () => {
-            try {
-                const response = await fetch('http://localhost:7197/api/Courses/enrolled', {
-                    headers: {
-                        ...authService.getAuthHeader()
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch enrolled courses');
-                }
-
-                const data = await response.json();
-                setEnrolledCourses(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchEnrolledCourses();
+        fetchCourses();
     }, []);
+
+    const fetchCourses = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await fetch('http://localhost:7197/api/Courses', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to fetch courses');
+            }
+
+            const data = await response.json();
+            console.log('Fetched courses:', data);
+            setCourses(data);
+        } catch (err) {
+            console.error('Error fetching courses:', err);
+            setError(err.message || 'Failed to load courses');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEnroll = async (courseId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:7197/api/Courses/${courseId}/enroll`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to enroll in course');
+            }
+
+            // Refresh the courses list after successful enrollment
+            await fetchCourses();
+        } catch (err) {
+            console.error('Error enrolling in course:', err);
+            setError(err.message || 'Failed to enroll in course');
+        }
+    };
 
     if (loading) {
         return (
-            <div className="container py-5">
-                <div className="d-flex justify-content-center">
-                    <div className="spinner-border text-primary" role="status">
+            <div className="container mt-5">
+                <div className="text-center">
+                    <div className="spinner-border" role="status">
                         <span className="visually-hidden">Loading...</span>
                     </div>
                 </div>
@@ -45,59 +79,54 @@ const StudentDashboard = () => {
         );
     }
 
-    if (error) {
-        return (
-            <div className="container py-5">
+    return (
+        <div className="container mt-5">
+            <h1 className="mb-4">Available Courses</h1>
+            
+            {error && (
                 <div className="alert alert-danger" role="alert">
                     {error}
                 </div>
-            </div>
-        );
-    }
+            )}
 
-    return (
-        <div className="container py-5">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h1 className="h2 fw-bold">Student Dashboard</h1>
-                <Link
-                    to="/available-courses"
-                    className="btn btn-primary"
-                >
-                    Browse Courses
-                </Link>
-            </div>
-
-            <div className="mt-4">
-                <h2 className="h4 mb-4">Your Enrolled Courses</h2>
-                {enrolledCourses.length === 0 ? (
-                    <div className="alert alert-info" role="alert">
-                        You haven't enrolled in any courses yet.
-                    </div>
-                ) : (
-                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                        {enrolledCourses.map((course) => (
-                            <div key={course.id} className="col">
-                                <div className="card h-100 shadow-sm">
-                                    <div className="card-body">
-                                        <h3 className="card-title h5">
-                                            {course.title}
-                                        </h3>
-                                        <p className="card-text text-muted">
-                                            {course.description}
+            {courses.length === 0 ? (
+                <div className="alert alert-info">
+                    No courses available at the moment.
+                </div>
+            ) : (
+                <div className="row">
+                    {courses.map((course) => (
+                        <div key={course.courseId} className="col-md-6 col-lg-4 mb-4">
+                            <div className="card h-100 shadow-sm">
+                                <div className="card-body">
+                                    <h5 className="card-title">{course.title}</h5>
+                                    <p className="card-text text-muted">{course.description}</p>
+                                    {course.mediaUrl && (
+                                        <p className="card-text">
+                                            <small className="text-muted">Media: {course.mediaUrl}</small>
                                         </p>
-                                        <Link
-                                            to={`/courses/${course.id}`}
-                                            className="btn btn-outline-primary btn-sm"
-                                        >
-                                            Continue Learning
-                                        </Link>
+                                    )}
+                                    <div className="mt-3">
+                                        <p className="card-text">
+                                            <small className="text-muted">
+                                                Instructor: {course.instructor?.name || 'Unknown'}
+                                            </small>
+                                        </p>
                                     </div>
                                 </div>
+                                <div className="card-footer bg-transparent border-top-0">
+                                    <button
+                                        onClick={() => handleEnroll(course.courseId)}
+                                        className="btn btn-primary w-100"
+                                    >
+                                        Enroll Now
+                                    </button>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

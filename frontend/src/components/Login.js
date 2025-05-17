@@ -46,7 +46,16 @@ const Login = () => {
 
             console.log('Attempting login with email:', formData.email);
             await login(formData.email, formData.password);
-            navigate('/');
+            
+            // Get user data after successful login
+            const userData = authService.getCurrentUser();
+            
+            // Navigate based on role
+            if (userData.role === ROLES.INSTRUCTOR) {
+                navigate('/instructor-dashboard');
+            } else {
+                navigate('/student-dashboard');
+            }
         } catch (err) {
             console.error('Login error:', err);
             setError(err.message || 'An error occurred during login. Please try again.');

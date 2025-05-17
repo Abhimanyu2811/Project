@@ -9,11 +9,14 @@ using Backendapi.Data;
 using Backendapi.Models;
 using finalpracticeproject.DTOs;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace Backendapi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CoursesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -56,12 +59,7 @@ namespace Backendapi.Controllers
                         userId = c.Instructor.UserId,
                         name = c.Instructor.Name ?? "Unknown Instructor",
                         email = c.Instructor.Email
-                    } : new
-                    {
-                        userId = Guid.Empty,
-                        name = "No Instructor Assigned",
-                        email = "N/A"
-                    }
+                    } : null
                 }).ToList();
 
                 return Ok(response);
@@ -281,6 +279,85 @@ namespace Backendapi.Controllers
             await _context.SaveChangesAsync();
 
             return Ok();
+        }
+
+        /// <summary>
+        /// Gets all courses for the currently authenticated instructor
+        /// </summary>
+        /// <returns>A list of courses created by the instructor</returns>
+        /// <response code="200">Returns the list of courses</response>
+        /// <response code="401">If the user is not authenticated</response>
+        /// <response code="404">If no courses are found</response>
+        [HttpGet("instructor")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<IEnumerable<object>>> GetInstructorCourses()
+        {
+            try
+            {
+                _logger.LogInformation("Fetching instructor courses...");
+                
+                // Log all claims for debugging
+                var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+                _logger.LogInformation("User claims: {@Claims}", claims);
+                
+                // Get the current user's ID from the token
+                var userId = User.FindFirst("UserId")?.Value;
+                _logger.LogInformation("Found user ID in token: {UserId}", userId);
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("User ID not found in token");
+                    return Unauthorized(new { message = "User ID not found in token" });
+                }
+
+                if (!Guid.TryParse(userId, out Guid instructorId))
+                {
+                    _logger.LogWarning("Invalid user ID format: {UserId}", userId);
+                    return BadRequest(new { message = "Invalid user ID format" });
+                }
+
+                _logger.LogInformation($"Fetching courses for instructor ID: {instructorId}");
+
+                // Get courses for this instructor by joining with Users table
+                var courses = await _context.Courses
+                    .Include(c => c.Instructor)
+                    .Where(c => c.Instructor != null && c.Instructor.UserId == instructorId)
+                    .ToListAsync();
+
+                _logger.LogInformation($"Found {courses.Count} courses for instructor {instructorId}");
+
+                if (courses.Count == 0)
+                {
+                    return Ok(new List<object>());
+                }
+
+                var response = courses.Select(c => new
+                {
+                    courseId = c.CourseId,
+                    title = c.Title ?? "Untitled Course",
+                    description = c.Description ?? "No description available",
+                    mediaUrl = c.MediaUrl,
+                    instructor = c.Instructor != null ? new
+                    {
+                        userId = c.Instructor.UserId,
+                        name = c.Instructor.Name ?? "Unknown Instructor",
+                        email = c.Instructor.Email
+                    } : null
+                }).ToList();
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetInstructorCourses");
+                return StatusCode(500, new { 
+                    message = "Internal server error while fetching instructor courses",
+                    error = ex.Message,
+                    stackTrace = ex.StackTrace
+                });
+            }
         }
 
         private bool CourseExists(Guid id)

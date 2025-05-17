@@ -96,7 +96,7 @@ const authService = {
             Email: emailStr,
             Password: passwordStr,
             Name: name,
-            Role: 'Student'
+            Role: 'Instructor' // Default to Instructor for now, backend will validate
         };
 
         console.log('Sending request:', {
@@ -113,13 +113,14 @@ const authService = {
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error);
+            const error = await response.json();
+            throw new Error(JSON.stringify(error));
         }
 
-        const token = await response.text();
-        localStorage.setItem('token', token);
-        return token;
+        const data = await response.json();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        return data.token;
     },
 
     async register(name, email, password) {

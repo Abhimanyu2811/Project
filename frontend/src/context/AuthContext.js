@@ -11,9 +11,9 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         // Check if user is already logged in
         const token = authService.getToken();
-        if (token) {
-            // You might want to validate the token here
-            setUser({ token });
+        const storedUser = localStorage.getItem('user');
+        if (token && storedUser) {
+            setUser(JSON.parse(storedUser));
             setIsAuthenticated(true);
         }
         setLoading(false);
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         try {
             console.log('AuthContext: Attempting login with:', { email, passwordLength: password?.length });
             const token = await authService.login(email, password);
-            const userData = authService.getCurrentUser();
+            const userData = JSON.parse(localStorage.getItem('user'));
             setUser(userData);
             setIsAuthenticated(true);
             return token;
