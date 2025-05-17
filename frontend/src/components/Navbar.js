@@ -1,85 +1,85 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
     const { isAuthenticated, logout } = useAuth();
     const navigate = useNavigate();
+    const [isNavCollapsed, setIsNavCollapsed] = useState(true);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
+    const toggleNavbar = () => {
+        setIsNavCollapsed(!isNavCollapsed);
+    };
+
     return (
-        <nav className="bg-gray-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16">
-                    <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                            <Link to="/" className="text-white font-bold text-xl">
-                                EduSync
+        <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div className="container">
+                <Link to="/" className="navbar-brand fw-bold">
+                    EduSync
+                </Link>
+                
+                <button 
+                    className="navbar-toggler" 
+                    type="button" 
+                    onClick={toggleNavbar}
+                    aria-controls="navbarContent"
+                    aria-expanded={!isNavCollapsed}
+                    aria-label="Toggle navigation"
+                >
+                    <span className="navbar-toggler-icon"></span>
+                </button>
+
+                <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`} id="navbarContent">
+                    <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li className="nav-item">
+                            <Link to="/" className="nav-link">
+                                Home
                             </Link>
-                        </div>
-                        <div className="hidden md:block">
-                            <div className="ml-10 flex items-baseline space-x-4">
-                                <Link
-                                    to="/"
-                                    className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                >
-                                    Home
+                        </li>
+                        {isAuthenticated && (
+                            <>
+                                <li className="nav-item">
+                                    <Link to="/courses" className="nav-link">
+                                        Courses
+                                    </Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link to="/assessments" className="nav-link">
+                                        Assessments
+                                    </Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link to="/results" className="nav-link">
+                                        Results
+                                    </Link>
+                                </li>
+                            </>
+                        )}
+                    </ul>
+
+                    <div className="d-flex">
+                        {isAuthenticated ? (
+                            <button
+                                onClick={handleLogout}
+                                className="btn btn-outline-light"
+                            >
+                                Logout
+                            </button>
+                        ) : (
+                            <div className="d-flex gap-2">
+                                <Link to="/login" className="btn btn-outline-light">
+                                    Login
                                 </Link>
-                                {isAuthenticated && (
-                                    <>
-                                        <Link
-                                            to="/courses"
-                                            className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                        >
-                                            Courses
-                                        </Link>
-                                        <Link
-                                            to="/assessments"
-                                            className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                        >
-                                            Assessments
-                                        </Link>
-                                        <Link
-                                            to="/results"
-                                            className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                        >
-                                            Results
-                                        </Link>
-                                    </>
-                                )}
+                                <Link to="/register" className="btn btn-primary">
+                                    Register
+                                </Link>
                             </div>
-                        </div>
-                    </div>
-                    <div className="hidden md:block">
-                        <div className="ml-4 flex items-center md:ml-6">
-                            {isAuthenticated ? (
-                                <button
-                                    onClick={handleLogout}
-                                    className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                >
-                                    Logout
-                                </button>
-                            ) : (
-                                <div className="flex space-x-4">
-                                    <Link
-                                        to="/login"
-                                        className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                    >
-                                        Login
-                                    </Link>
-                                    <Link
-                                        to="/register"
-                                        className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                                    >
-                                        Register
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>

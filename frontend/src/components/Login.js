@@ -56,54 +56,72 @@ const Login = () => {
     };
 
     return (
-        <div className="container mt-5">
-            <div className="row justify-content-center">
-                <div className="col-md-6">
-                    <div className="card">
-                        <div className="card-body">
-                            <h2 className="card-title text-center mb-4">Sign in to your account</h2>
-                            
+        <div className="container-fluid bg-light min-vh-100">
+            <div className="row justify-content-center align-items-center min-vh-100">
+                <div className="col-12 col-md-8 col-lg-6 col-xl-5">
+                    <div className="card shadow-lg border-0 rounded-lg">
+                        <div className="card-header bg-primary text-white text-center py-4">
+                            <h3 className="mb-0 fw-bold">Welcome Back!</h3>
+                            <p className="mb-0">Sign in to continue to EduSync</p>
+                        </div>
+                        <div className="card-body p-5">
                             {error && (
-                                <div className="alert alert-danger" role="alert">
+                                <div className="alert alert-danger alert-dismissible fade show" role="alert">
                                     {error}
+                                    <button type="button" className="btn-close" onClick={() => setError('')}></button>
                                 </div>
                             )}
 
                             <form onSubmit={handleSubmit}>
-                                <div className="mb-3">
-                                    <label htmlFor="email" className="form-label">Email address</label>
+                                <div className="form-floating mb-3">
                                     <input
                                         type="email"
                                         className="form-control"
                                         id="email"
                                         name="email"
+                                        placeholder="name@example.com"
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
                                     />
+                                    <label htmlFor="email">Email address</label>
                                 </div>
 
-                                <div className="mb-3">
-                                    <label htmlFor="password" className="form-label">Password</label>
+                                <div className="form-floating mb-4">
                                     <input
                                         type="password"
                                         className="form-control"
                                         id="password"
                                         name="password"
+                                        placeholder="Password"
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
                                     />
+                                    <label htmlFor="password">Password</label>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary w-100"
-                                    disabled={loading}
-                                >
-                                    {loading ? 'Signing in...' : 'Sign in'}
-                                </button>
+                                <div className="d-grid">
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary btn-lg"
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                                Signing in...
+                                            </>
+                                        ) : 'Sign in'}
+                                    </button>
+                                </div>
                             </form>
+                        </div>
+                        <div className="card-footer text-center py-3 bg-light">
+                            <div className="small">
+                                Don't have an account?{' '}
+                                <a href="/register" className="text-primary fw-bold">Register now!</a>
+                            </div>
                         </div>
                     </div>
                 </div>

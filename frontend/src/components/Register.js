@@ -101,104 +101,103 @@ const Register = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Create your account
-                </h2>
-            </div>
+        <div className="container-fluid bg-light min-vh-100">
+            <div className="row justify-content-center align-items-center min-vh-100">
+                <div className="col-12 col-md-8 col-lg-6 col-xl-5">
+                    <div className="card shadow-lg border-0 rounded-lg">
+                        <div className="card-header bg-primary text-white text-center py-4">
+                            <h3 className="mb-0 fw-bold">Create Account</h3>
+                            <p className="mb-0">Join EduSync today</p>
+                        </div>
+                        <div className="card-body p-5">
+                            {error && (
+                                <div className="alert alert-danger alert-dismissible fade show" role="alert">
+                                    {error}
+                                    <button type="button" className="btn-close" onClick={() => setError('')}></button>
+                                </div>
+                            )}
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                    <form className="space-y-6" onSubmit={handleSubmit}>
-                        {error && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="text-sm text-red-700">{error}</div>
-                            </div>
-                        )}
+                            <form onSubmit={handleSubmit}>
+                                <div className="form-floating mb-3">
+                                    <input
+                                        id="name"
+                                        name="name"
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="John Doe"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                    <label htmlFor="name">Full Name</label>
+                                </div>
 
-                        <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                                Full Name
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    id="name"
-                                    name="name"
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
+                                <div className="form-floating mb-3">
+                                    <input
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        className="form-control"
+                                        placeholder="name@example.com"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                    <label htmlFor="email">Email address</label>
+                                </div>
+
+                                <div className="form-floating mb-3">
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type="password"
+                                        className="form-control"
+                                        placeholder="Password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                    <label htmlFor="password">Password</label>
+                                </div>
+
+                                <div className="form-floating mb-4">
+                                    <select
+                                        id="role"
+                                        name="role"
+                                        className="form-select"
+                                        value={formData.role}
+                                        onChange={handleChange}
+                                        required
+                                    >
+                                        <option value={ROLES.STUDENT}>Student</option>
+                                        <option value={ROLES.INSTRUCTOR}>Instructor</option>
+                                    </select>
+                                    <label htmlFor="role">Select Role</label>
+                                </div>
+
+                                <div className="d-grid">
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary btn-lg"
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                                Creating Account...
+                                            </>
+                                        ) : 'Create Account'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="card-footer text-center py-3 bg-light">
+                            <div className="small">
+                                Already have an account?{' '}
+                                <a href="/login" className="text-primary fw-bold">Sign in!</a>
                             </div>
                         </div>
-
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email address
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    required
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                Password
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    required
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                                Role
-                            </label>
-                            <div className="mt-1">
-                                <select
-                                    id="role"
-                                    name="role"
-                                    required
-                                    value={formData.role}
-                                    onChange={handleChange}
-                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                >
-                                    <option value={ROLES.STUDENT}>Student</option>
-                                    <option value={ROLES.INSTRUCTOR}>Instructor</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Registering...' : 'Register'}
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
