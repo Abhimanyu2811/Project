@@ -19,17 +19,31 @@ const StudentDashboard = () => {
                 throw new Error('No authentication token found');
             }
 
+            console.log('Fetching available courses...');
+
+            // Increase timeout to 15 seconds
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
             const response = await fetch('http://localhost:7197/api/Courses', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
-                }
+                },
+                signal: controller.signal
             });
 
+            clearTimeout(timeoutId);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to fetch courses');
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Error response:', errorData);
+                
+                if (response.status === 401) {
+                    throw new Error('Authentication failed. Please log in again.');
+                }
+                throw new Error(errorData.message || `Failed to fetch courses: ${response.status}`);
             }
 
             const data = await response.json();
@@ -37,7 +51,13 @@ const StudentDashboard = () => {
             setCourses(data);
         } catch (err) {
             console.error('Error fetching courses:', err);
-            setError(err.message || 'Failed to load courses');
+            if (err.name === 'AbortError') {
+                setError('Request timed out. The server is taking too long to respond. Please try again.');
+            } else if (err.message.includes('Failed to fetch')) {
+                setError('Cannot connect to the server. Please make sure the backend server is running at http://localhost:7197');
+            } else {
+                setError(err.message || 'Failed to load courses');
+            }
         } finally {
             setLoading(false);
         }
